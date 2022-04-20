@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import qs from 'qs';
 import Config from 'src/configs/config';
+import { parseFormData } from 'src/shared/helpers/function';
 import Interceptor from './Interceptor';
 import AuthenticationInterceptor from './interceptor/AuthenticationInterceptor';
 import RetryInterceptor from './interceptor/RetryInterceptor';
@@ -10,6 +11,7 @@ export type HTTPMethod = 'POST' | 'GET' | 'PUT' | 'PATCH' | 'DELETE';
 interface IConstructor {
     resource: string;
     method: HTTPMethod;
+    isFormDataType?: boolean;
     configs?: Config;
     resourceType?: any;
     axiosInstance?: AxiosInstance;
@@ -24,6 +26,7 @@ interface IConstructor {
 class ApiGateway {
     resource: string;
     method: HTTPMethod;
+    isFormDataType?: boolean;
     configs?: Config;
     resourceType?: any;
     _instanceAxios: AxiosInstance;
@@ -39,7 +42,7 @@ class ApiGateway {
     onReceivedProgress?: (progress: number, total: number) => void;
 
     constructor(data: IConstructor) {
-        const { configs, resource, resourceType, headers, interceptorsCustom, timeout = 30 * 1000, method, body, params, onReceivedProgress, onSendProgress, axiosInstance } = data;
+        const { configs, isFormDataType, resource, resourceType, headers, interceptorsCustom, timeout = 30 * 1000, method, body, params, onReceivedProgress, onSendProgress, axiosInstance } = data;
         this.configs = configs;
         this.resourceType = resourceType;
         this.resource = resource;
@@ -52,6 +55,7 @@ class ApiGateway {
         this._instanceAxios = axiosInstance ?? axios.create();
         this.onSendProgress = onSendProgress;
         this.onReceivedProgress = onReceivedProgress;
+        this.isFormDataType = isFormDataType;
         // this._errorLogInterceptor = new ErrorLogInterceptor();
 
         // this.endpoint = this.getEndpoint(resourceType);
@@ -64,7 +68,7 @@ class ApiGateway {
             baseURL: this.endpoint,
             timeout: this.configTimeout,
             headers: this.headers ? this.headers : {
-                'Content-Type': 'application/json'
+                'Content-Type': this.isFormDataType ? 'multipart/form-data' : 'application/json'
             },
             url: this.resource,
             method: this.method,
@@ -73,7 +77,7 @@ class ApiGateway {
                 skipNulls: true,
                 arrayFormat: 'brackets',
             }),
-            data: this.body,
+            data: this.isFormDataType ? parseFormData(this.body) : this.body,
         };
         if (this.onSendProgress) {
             this.requestConfig.onUploadProgress = ({ loaded, total }: { loaded: number, total: number }) => this.onSendProgress!(loaded, total);
